@@ -26,4 +26,10 @@ The native build uses pinned sources and puts the tools in `artifacts/native/win
 
 The FFmpeg build includes x264 and reports GPL version 2 or later. The package includes the upstream license texts and notices in `ffmpeg/LICENSE.txt`. The packaging scripts and synthetic test fixtures are covered by this repository's [MIT license](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/blob/main/LICENSE).
 
-Each [package release](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/releases) includes an `ffmpeg-<upstream version>-sources.zip` asset with the exact component sources, patches and build recipes. The license file shipped with the binaries links directly to their source archive. GitHub Actions checks weekly for a newer stable FFmpeg release. It verifies the upstream signature, records the new source checksum and runs the Release workflow on a hosted Windows runner. Each release must pass the package and codec tests before it reaches NuGet.org and GitHub. The upstream check and release can also be run manually from Actions.
+Each [package release](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/releases) includes an `ffmpeg-<upstream version>-sources.zip` asset with the exact component sources, patches and build recipes. The license file shipped with the binaries links directly to their source archive.
+
+## Release from GitHub Actions
+
+Open [Release latest FFmpeg](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/actions/workflows/upstream.yml) and select **Run workflow** on `main`. It compares the newest stable FFmpeg release with the current package. For a new version it verifies the upstream signature, records the source checksum and starts the hosted Windows build. The codec and package tests must pass before the publisher uploads the NuGet package and the corresponding source archive. Select **dry-run** to preview the result.
+
+Release generation is manual. [Publish pinned FFmpeg](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/actions/workflows/release.yml) builds the version already pinned in this repository. Pull requests run the build and tests.
