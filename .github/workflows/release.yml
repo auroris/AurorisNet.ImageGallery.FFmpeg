@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test the NuGet package
+    runs-on: windows-2022
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build Windows tools and corresponding sources
+        shell: pwsh
+        run: ./build/Build-Native.ps1
+      - name: Pack
+        shell: pwsh
+        run: dotnet pack ./AurorisNet.ImageGallery.FFmpeg.nuspec -o artifacts/packages
+      - name: Verify a published consumer and all supported video codecs
+        shell: pwsh
+        run: ./test/Test-Package.ps1
+      - name: Read package version
+        id: version
+        shell: pwsh
+        run: |
+          $spec = [xml](Get-Content -Raw AurorisNet.ImageGallery.FFmpeg.nuspec)
+          "version=$($spec.package.metadata.version)" >> $env:GITHUB_OUTPUT
+      - name: Save the tested package and matching sources
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-files
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/ffmpeg-*-sources.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish to NuGet.org and GitHub
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    concurrency:
+      group: publish-ffmpeg
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-files
+          path: artifacts
+      - uses: auroris/AurorisNet.Build/actions/publish@c6e14f9838bb8514aa33c56b670325e85c118402
+        with:
+          versions: ${{ needs.build.outputs.version }}
+          packages: artifacts/packages
+          assets: artifacts/ffmpeg-*-sources.zip

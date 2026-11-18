@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>AurorisNet.ImageGallery.FFmpeg</id>
+    <version>9.0.2</version>
+    <authors>AurorisNet</authors>
+    <description>Windows x64 FFmpeg and FFprobe command-line tools for ImageGallery's silent MP4 previews and PNG icons.</description>
+    <projectUrl>https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg</projectUrl>
+    <repository type="git" url="https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg.git" />
+    <license type="file">LICENSE.txt</license>
+    <readme>README.md</readme>
+    <tags>ffmpeg ffprobe imagegallery win-x64</tags>
+    <contentFiles>
+      <files include="any/any/ffmpeg/*" buildAction="None" copyToOutput="true" flatten="false" />
+    </contentFiles>
+  </metadata>
+  <files>
+    <file src="artifacts\native\win-x64\*.*" target="contentFiles\any\any\ffmpeg" />
+    <file src="artifacts\native\win-x64\LICENSE.txt" target="LICENSE.txt" />
+    <file src="README.md" target="README.md" />
+  </files>
+</package>
