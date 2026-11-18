@@ -16,7 +16,7 @@ $DownloadDirectory = [IO.Directory]::CreateDirectory($DownloadDirectory).FullNam
 $lock = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'inputs.json') | ConvertFrom-Json -AsHashtable
 $version = $lock.ffmpeg.version
 
-function Get-PinnedFile([string]$Name, [string]$Url, [string]$Sha256) {
+function Get-PinnedFile([string]$Name, [string[]]$Urls, [string]$Sha256) {
     $cached = Join-Path $DownloadDirectory $Name
     # A published source bundle already contains its source downloads.
     $bundled = Join-Path $PSScriptRoot "../sources/$Name"
@@ -26,19 +26,24 @@ function Get-PinnedFile([string]$Name, [string]$Url, [string]$Sha256) {
             return [IO.Path]::GetFullPath($candidate)
         }
     }
-    Write-Host "Downloading $Name"
     $partial = "$cached.$([guid]::NewGuid()).part"
     try {
-        Invoke-WebRequest -Uri $Url -OutFile $partial -MaximumRetryCount 2
-        if ((Get-FileHash -LiteralPath $partial).Hash -ne $Sha256) { throw "SHA-256 mismatch for $Url" }
-        [IO.File]::Move($partial, $cached, $true)
+        foreach ($url in $Urls) {
+            Write-Host "Downloading $url"
+            & "$env:SystemRoot/System32/curl.exe" --fail --location --silent --show-error --connect-timeout 20 --max-time 600 --speed-time 30 --speed-limit 4096 --retry 1 --retry-max-time 60 --output $partial $url
+            if ($LASTEXITCODE) { continue }
+            if ((Get-FileHash -LiteralPath $partial).Hash -ne $Sha256) { throw "SHA-256 mismatch for $url" }
+            [IO.File]::Move($partial, $cached, $true)
+            return $cached
+        }
+        throw "Could not download $Name."
     } finally {
         if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial }
     }
-    return $cached
 }
 
 function Expand-Input([string]$Archive, [string]$Directory, [string]$Tar, [string[]]$Members = @()) {
+    Write-Host "Extracting $([IO.Path]::GetFileName($Archive)) with $Tar"
     & $Tar -xf $Archive -C $Directory @Members
     if ($LASTEXITCODE) { throw "Could not extract $Archive." }
 }
@@ -46,8 +51,9 @@ function Expand-Input([string]$Archive, [string]$Directory, [string]$Tar, [strin
 $tempRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $work = [IO.Directory]::CreateTempSubdirectory('AurorisNet-FFmpeg-').FullName
 try {
-    $base = Get-PinnedFile ([IO.Path]::GetFileName($lock.msys2.url)) $lock.msys2.url $lock.msys2.sha256
-    Expand-Input $base $work 'tar.exe'
+    $baseName = [IO.Path]::GetFileName($lock.msys2.url)
+    $base = Get-PinnedFile $baseName @("https://repo.msys2.org/distrib/x86_64/$baseName", $lock.msys2.url) $lock.msys2.sha256
+    Expand-Input $base $work "$env:SystemRoot/System32/tar.exe"
     $msys = Join-Path $work 'msys64'
     # The pinned MSYS2 bsdtar supports zstd even when the Windows system tar does not.
     $tar = Join-Path $msys 'usr/bin/bsdtar.exe'
