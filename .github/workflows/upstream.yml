@@ -1,0 +1,31 @@
+name: Check upstream FFmpeg
+
+on:
+  schedule:
+    - cron: '17 7 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Check for updates without pushing or starting a release
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency: upstream-ffmpeg
+
+jobs:
+  check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check FFmpeg releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLY: ${{ github.event_name == 'schedule' || !inputs.dry-run }}
+        run: ./automation/Update-Upstream.ps1 -Apply:($env:APPLY -eq 'true')
