@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="26" fill="#1e293b"/>
+  <!-- A strip of film: one frame with sprocket holes above and below. -->
+  <rect x="22" y="26" width="84" height="76" rx="10" fill="#fff"/>
+  <g fill="#1e293b">
+    <rect x="31" y="34" width="12" height="9" rx="3"/>
+    <rect x="49" y="34" width="12" height="9" rx="3"/>
+    <rect x="67" y="34" width="12" height="9" rx="3"/>
+    <rect x="85" y="34" width="12" height="9" rx="3"/>
+    <rect x="31" y="85" width="12" height="9" rx="3"/>
+    <rect x="49" y="85" width="12" height="9" rx="3"/>
+    <rect x="67" y="85" width="12" height="9" rx="3"/>
+    <rect x="85" y="85" width="12" height="9" rx="3"/>
+    <!-- The play triangle: the tools turn each video into a clip that plays in the gallery. -->
+    <path d="M56 52 L56 76 L77 64 Z" stroke="#1e293b" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+</svg>

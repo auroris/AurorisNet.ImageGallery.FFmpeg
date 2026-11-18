@@ -1,18 +1,56 @@
 # AurorisNet.ImageGallery.FFmpeg
 
-Windows x64 builds of FFmpeg and FFprobe for [AurorisNet.ImageGallery](https://github.com/auroris/AurorisNet.ImageGallery). The gallery probes a local video, makes a silent H.264 MP4 preview and extracts a PNG icon. The package supports H.264, HEVC, VP8, VP9 and software AV1 decoding from MP4/MOV and WebM/Matroska containers. Browser playback of the original still depends on the browser's codecs.
+FFmpeg and FFprobe for Windows x64, as a NuGet package that copies the tools into an application's output.
 
-## Use the package
+![GPL-2.0-or-later license](https://raw.githubusercontent.com/auroris/AurorisNet.Build/main/badges/license-gpl-2.0-or-later.svg)
+![Windows](https://raw.githubusercontent.com/auroris/AurorisNet.Build/main/badges/windows.svg)
+
+[AurorisNet.ImageGallery](https://github.com/auroris/AurorisNet.ImageGallery) starts these tools for each video in a gallery folder: FFprobe reads the video's size and length, and FFmpeg writes a short silent MP4 preview and a PNG icon. The build holds what those three commands need and leaves the rest of FFmpeg out:
+
+- **Reads** H.264, HEVC, VP8, VP9 and AV1 video from MP4, MOV, WebM and Matroska files.
+- **Writes** H.264 video to MP4 with x264, and PNG images.
+- **Runs on the CPU.** The tools use no hardware decoder and no Media Foundation, so they behave the same on a workstation and on Windows Server.
+- **Leaves out** every audio codec, network protocol and capture device, and FFplay. The tools open local files only.
+
+## Install
 
 ```shell
 dotnet add package AurorisNet.ImageGallery.FFmpeg
 ```
 
-NuGet copies `ffmpeg.exe`, `ffprobe.exe`, their native DLLs and `LICENSE.txt` into the application's `ffmpeg/` directory on build and publish. Start the tools from `Path.Combine(AppContext.BaseDirectory, "ffmpeg")`. They run on the CPU and work on Windows Server without Media Foundation.
+The package holds no .NET assembly. On build and on publish, NuGet copies `ffmpeg.exe`, `ffprobe.exe`, their DLLs and `LICENSE.txt` into an `ffmpeg` folder in the application's output. Start a tool from there:
 
-## Build and test
+```csharp
+string ffprobe = Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffprobe.exe");
+```
 
-To build locally, use Windows x64, PowerShell 7.4 or later and the .NET 10 SDK or later. From the repository root, run:
+The project must reference the package with `PackageReference`, which every SDK-style project does.
+
+## What the build enables
+
+| Part of FFmpeg | Enabled |
+|---|---|
+| Programs | `ffmpeg`, `ffprobe` |
+| Protocols | `file` |
+| Demuxers | `mov`, which reads MP4 and MOV, and `matroska`, which reads WebM and Matroska |
+| Decoders | `h264`, `hevc`, `vp8`, `vp9`, and `libdav1d` for AV1 |
+| Encoders | `libx264`, `png` |
+| Muxers | `mp4`, `image2` |
+| Filters | `scale`, `trim`, `reverse`, `format` |
+
+[`build/build-native.sh`](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/blob/main/build/build-native.sh) holds the full `configure` line. An application that needs another codec or filter needs a different FFmpeg build.
+
+## Supported versions
+
+| Component | Version |
+|---|---|
+| FFmpeg | The package version is the FFmpeg release: package `9.0.2` holds FFmpeg 9.0.2. A release with two numbers, such as 9.1, becomes package `9.1.0`. |
+| Operating system | Windows x64. The tools use the Universal C Runtime that Windows includes. |
+| Project | Any SDK-style .NET project. |
+
+## Developing
+
+You need Windows x64, PowerShell 7.4 or later and the .NET 10 SDK or later. From the repository root:
 
 ```powershell
 ./build/Build-Native.ps1
@@ -20,16 +58,28 @@ dotnet pack ./AurorisNet.ImageGallery.FFmpeg.nuspec -o ./artifacts/packages
 ./test/Test-Package.ps1
 ```
 
-The native build uses pinned sources and puts the tools in `artifacts/native/win-x64/`. The package test restores and publishes a small .NET consumer and runs the gallery's probe, preview and icon commands on synthetic samples for each supported input codec.
+`Build-Native.ps1` downloads the FFmpeg source, an MSYS2 base and the compiler and library packages that [`build/inputs.json`](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/blob/main/build/inputs.json) names, and checks each against its SHA-256 there. It builds in a temporary folder, then writes the tools to `artifacts/native/win-x64` and the matching sources to `artifacts/ffmpeg-<version>-sources.zip`.
 
-## License and source
+`Test-Package.ps1` publishes a small .NET project that takes the package from `artifacts/packages` only. It checks that the published files are the built files, then runs the gallery's probe, preview and icon commands on a sample of each input codec in `test/samples`.
 
-The FFmpeg build includes x264 and reports GPL version 2 or later. The package includes the upstream license texts and notices in `ffmpeg/LICENSE.txt`. The packaging scripts and synthetic test fixtures are covered by this repository's [MIT license](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/blob/main/LICENSE).
+| Folder | Contents |
+|---|---|
+| `build` | The native build, its pinned inputs, and the README that goes into the source archive. |
+| `test` | The package test, its consumer project and the sample videos. |
+| `automation` | `Update-Upstream.ps1`, which moves the pin to a new FFmpeg release. |
 
-Each [package release](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/releases) includes an `ffmpeg-<upstream version>-sources.zip` asset with the exact component sources, patches and build recipes. The license file shipped with the binaries links directly to their source archive.
+## Releases
 
-## Release from GitHub Actions
+The package follows FFmpeg's stable releases. `upstream.yml` starts by hand: it compares the newest stable FFmpeg release with the pinned one. For a newer release it checks the source tarball's signature against FFmpeg's release key, commits the new version and checksum to `main`, and starts `release.yml`.
 
-Open [Release latest FFmpeg](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/actions/workflows/upstream.yml) and select **Run workflow** on `main`. It compares the newest stable FFmpeg release with the current package. For a new version it verifies the upstream signature, records the source checksum and starts the hosted Windows build. The codec and package tests must pass before the publisher uploads the NuGet package and the corresponding source archive. Select **dry-run** to preview the result.
+`release.yml` builds the pinned version on a hosted Windows runner, packs it and runs the package test. When the test passes, it pushes the package to nuget.org and publishes a GitHub release with the package and `ffmpeg-<version>-sources.zip`. Both workflows have a `dry-run` input, which publishes nothing. `ci.yml` runs the same build and test on each pull request.
 
-Release generation is manual. [Publish pinned FFmpeg](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/actions/workflows/release.yml) builds the version already pinned in this repository. Pull requests run the build and tests.
+A new package version reaches ImageGallery as a Dependabot pull request there. The [release guide](https://github.com/auroris/AurorisNet.Build/blob/main/docs/releasing.md) describes the shared workflows.
+
+## License
+
+The FFmpeg build includes x264, so the tools are under the GNU General Public License, version 2 or later. `ffmpeg/LICENSE.txt` in the package holds the license texts and notices of FFmpeg, x264, dav1d, zlib and the MinGW-w64 runtime.
+
+Each [release](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/releases) has an `ffmpeg-<version>-sources.zip` with the sources of those components, the patches and the build scripts for the binaries in that package. `LICENSE.txt` links to it.
+
+The build scripts, the package test and the sample videos in this repository are under the [MIT license](https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg/blob/main/LICENSE).

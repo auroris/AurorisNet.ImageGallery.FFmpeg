@@ -106,9 +106,10 @@ if (!$complete) {
 
 $head = git rev-parse HEAD
 if (!$releaseCommit) { $releaseCommit = $head }
-$runs = gh api -X GET $workflowRuns -f branch=main -f event=workflow_dispatch -f head_sha=$releaseCommit -F per_page=1 |
+$runs = gh api -X GET $workflowRuns -f branch=main -f event=workflow_dispatch -f head_sha=$releaseCommit -F per_page=20 |
     ConvertFrom-Json
-$prior = $runs.workflow_runs | Select-Object -First 1
+# A dry run of release.yml publishes nothing, so retrying one would not finish the release.
+$prior = $runs.workflow_runs | Where-Object { $_.display_title -notlike '*(dry run)*' } | Select-Object -First 1
 if ($prior -and $prior.status -ne 'completed') {
     Write-Host "Release run $($prior.id) is $($prior.status)."
     return

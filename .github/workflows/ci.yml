@@ -1,0 +1,61 @@
+name: CI
+
+# Builds the pinned FFmpeg, packs it and runs the package test on each pull request, then merges Dependabot updates.
+# Dependabot only updates workflow actions here, so its pull requests merge without a release. The shared step comes
+# from auroris/AurorisNet.Build, whose docs/releasing.md describes it.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  test:
+    name: Build and test
+    # The native build runs MSYS2 and MinGW-w64, and the test runs the Windows executables it made.
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the Windows tools and the matching sources
+        run: ./build/Build-Native.ps1
+
+      - name: Pack
+        run: dotnet pack ./AurorisNet.ImageGallery.FFmpeg.nuspec -o artifacts/packages
+
+      - name: Test a published consumer on each input codec
+        run: ./test/Test-Package.ps1
+
+  # A workflow that runs for Dependabot gets a read-only token unless the job asks for more.
+  dependabot:
+    name: Merge Dependabot update
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - uses: auroris/AurorisNet.Build/actions/dependabot-release@main
