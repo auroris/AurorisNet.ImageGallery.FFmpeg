@@ -53,9 +53,10 @@ $work = [IO.Directory]::CreateTempSubdirectory('AurorisNet-FFmpeg-').FullName
 try {
     $baseName = [IO.Path]::GetFileName($lock.msys2.url)
     $base = Get-PinnedFile $baseName @("https://repo.msys2.org/distrib/x86_64/$baseName", $lock.msys2.url) $lock.msys2.sha256
-    Expand-Input $base $work "$env:SystemRoot/System32/tar.exe"
+    Write-Host "Extracting $baseName"
+    & $base -y "-o$work" | Out-Null
+    if ($LASTEXITCODE) { throw "Could not extract $baseName (exit $LASTEXITCODE)." }
     $msys = Join-Path $work 'msys64'
-    # The pinned MSYS2 bsdtar supports zstd even when the Windows system tar does not.
     $tar = Join-Path $msys 'usr/bin/bsdtar.exe'
     foreach ($entry in $lock.packages.GetEnumerator()) {
         $ucrt = $entry.Key.StartsWith('mingw-w64-ucrt-x86_64-')

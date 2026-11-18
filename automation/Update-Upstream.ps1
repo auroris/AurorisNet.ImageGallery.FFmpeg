@@ -42,6 +42,16 @@ $sourceVersion = $manifest.ffmpeg.version
 $packageVersion = ([xml]$specText).package.metadata.version
 if ($packageVersion -ne (Get-PackageVersion $sourceVersion)) { throw 'The pinned FFmpeg and NuGet versions disagree.' }
 
+# A documentation change can move main while the same package version is still building.
+$workflowRuns = "repos/$env:GITHUB_REPOSITORY/actions/workflows/release.yml/runs"
+foreach ($status in 'in_progress', 'queued', 'pending', 'waiting', 'requested') {
+    $active = gh api -X GET $workflowRuns -f branch=main -f event=workflow_dispatch -f status=$status -F per_page=1 --jq '.workflow_runs[0].id // empty'
+    if ($active) {
+        Write-Host "Release run $active is $status on main. Let it finish before starting another release."
+        return
+    }
+}
+
 # The shared publisher uploads NuGet first, then creates the GitHub release and its assets.
 $owner, $repo = $env:GITHUB_REPOSITORY -split '/', 2
 $query = @'
@@ -96,7 +106,7 @@ if (!$complete) {
 
 $head = git rev-parse HEAD
 if (!$releaseCommit) { $releaseCommit = $head }
-$runs = gh api -X GET "repos/$env:GITHUB_REPOSITORY/actions/workflows/release.yml/runs" -f branch=main -f event=workflow_dispatch -f head_sha=$releaseCommit -F per_page=1 |
+$runs = gh api -X GET $workflowRuns -f branch=main -f event=workflow_dispatch -f head_sha=$releaseCommit -F per_page=1 |
     ConvertFrom-Json
 $prior = $runs.workflow_runs | Select-Object -First 1
 if ($prior -and $prior.status -ne 'completed') {
