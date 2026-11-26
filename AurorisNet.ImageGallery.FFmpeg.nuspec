@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>AurorisNet.ImageGallery.FFmpeg</id>
-    <version>9.0.2</version>
+    <version>9.1.0</version>
     <authors>AurorisNet</authors>
     <description>Windows x64 FFmpeg and FFprobe command-line tools for ImageGallery's silent MP4 previews and PNG icons.</description>
     <projectUrl>https://github.com/auroris/AurorisNet.ImageGallery.FFmpeg</projectUrl>
